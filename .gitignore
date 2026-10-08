@@ -4,3 +4,9 @@ dist
 dist-ssr
 *.local
 *.log
+
+# Environment variables & secrets (CRITICAL: Never commit to public GitHub)
+.env
+.env.*
+!.env.example
+

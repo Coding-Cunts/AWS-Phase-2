@@ -71,6 +71,29 @@ export class VisionClassifier {
   }
 
   /**
+   * Calls the AWS Backend (/api/classify) where GEMINI_API_KEY is securely kept.
+   * Returns { detectedItems: Array<{item_name, category, bbox}>, frontendReport: string, raw: string }
+   */
+  static async callBackendClassification(imageBase64) {
+    const endpoint = '/api/classify';
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64 })
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const msg = errData?.error || `HTTP ${response.status}: ${response.statusText}`;
+      throw new Error(msg);
+    }
+
+    const data = await response.json();
+    // result shape: { detectedItems, frontendReport, raw }
+    return data;
+  }
+
+  /**
    * Main classification handler
    */
   static async classifyImage({ canvas, overrideItem = null, networkTier = '4g' }) {
@@ -90,34 +113,69 @@ export class VisionClassifier {
     // Step 2: Edge Image Compression
     const compressed = this.compressCanvas(canvas);
 
-    // Latency simulation based on network tier
-    let baseNetworkDelay = 450;
-    if (networkTier === '5g') baseNetworkDelay = 220;
-    if (networkTier === 'wifi') baseNetworkDelay = 180;
-    if (networkTier === '3g') baseNetworkDelay = 1100;
-
-    const delay = Math.floor(baseNetworkDelay + Math.random() * 250);
-    await new Promise(res => setTimeout(res, delay));
-
-    const totalMs = Math.round(performance.now() - startTime);
-
-    // Step 3: Match item from sample library or compute intelligent result based on visual color / luminance features
-    let matchedItem;
+    // If override sample chosen from library
     if (overrideItem) {
-      matchedItem = { ...overrideItem };
-    } else {
-      // Pick item based on luminance and random sampling for live camera
-      const samplePool = SAMPLE_ITEMS.filter(i => i.id !== 'uncertain_unknown_wrapper');
-      matchedItem = { ...samplePool[Math.floor(Math.random() * samplePool.length)] };
+      let delay = 450;
+      if (networkTier === '5g') delay = 220;
+      if (networkTier === 'wifi') delay = 180;
+      await new Promise(res => setTimeout(res, delay));
+      const totalMs = Math.round(performance.now() - startTime);
+
+      return {
+        success: true,
+        tooDark: false,
+        luminance,
+        source: 'sample_library',
+        compressedInfo: compressed,
+        inference_latency_ms: totalMs,
+        result: { ...overrideItem }
+      };
     }
 
-    return {
-      success: true,
-      tooDark: false,
-      luminance,
-      compressedInfo: compressed,
-      inference_latency_ms: totalMs,
-      result: matchedItem
-    };
+    // Step 3: Try calling the secure AWS Backend endpoint (/api/classify)
+    try {
+      const base64Data = compressed.dataUrl.split(',')[1];
+      const backendRes = await this.callBackendClassification(base64Data);
+      const totalMs = Math.round(performance.now() - startTime);
+
+      return {
+        success: true,
+        tooDark: false,
+        luminance,
+        source: 'gemini_vision_ai',
+        compressedInfo: compressed,
+        inference_latency_ms: totalMs,
+        // New shape: detectedItems[] + frontendReport string
+        result: backendRes.result
+      };
+    } catch (err) {
+      console.warn('Backend /api/classify call unavailable or offline. Falling back to local classifier:', err.message);
+
+      let baseNetworkDelay = 450;
+      if (networkTier === '5g') baseNetworkDelay = 220;
+      if (networkTier === 'wifi') baseNetworkDelay = 180;
+      if (networkTier === '3g') baseNetworkDelay = 1100;
+
+      const delay = Math.floor(baseNetworkDelay + Math.random() * 250);
+      await new Promise(res => setTimeout(res, delay));
+
+      const totalMs = Math.round(performance.now() - startTime);
+
+      // Offline fallback: return a minimal scene result matching the new shape
+      return {
+        success: true,
+        tooDark: false,
+        luminance,
+        source: 'local_taxonomy',
+        offlineNotice: err.message,
+        compressedInfo: compressed,
+        inference_latency_ms: totalMs,
+        result: {
+          detectedItems: [],
+          frontendReport: 'Offline mode: AI classification unavailable. Please check your connection and try again.',
+          raw: ''
+        }
+      };
+    }
   }
 }

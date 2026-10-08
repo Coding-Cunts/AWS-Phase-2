@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, Zap, ZapOff, HelpCircle, Activity, Smartphone, Monitor, Wifi, Radio } from 'lucide-react';
+import { Camera, Zap, ZapOff, HelpCircle, Activity, Smartphone, Monitor, Wifi, Radio, Sparkles, MessageSquare } from 'lucide-react';
 
 export default function HeaderNav({
   flashOn,
@@ -10,7 +10,8 @@ export default function HeaderNav({
   onChangeNetworkTier,
   onOpenHelp,
   onOpenTelemetry,
-  onOpenSampleGallery
+  onOpenSampleGallery,
+  onOpenChat
 }) {
   return (
     <header className="sticky top-0 z-30 w-full backdrop-blur-md bg-slate-950/80 border-b border-slate-800/80 px-4 py-2.5 transition-all duration-300 select-none">
@@ -98,11 +99,23 @@ export default function HeaderNav({
           {/* Sample Items Quick Menu */}
           <button
             onClick={onOpenSampleGallery}
-            className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition-all flex items-center gap-1"
+            className="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition-all flex items-center gap-1 cursor-pointer"
             title="Open Pre-loaded Waste Edge Case Gallery"
           >
             <span className="font-semibold">Samples</span>
           </button>
+
+          {/* AI Assistant Chat Trigger */}
+          {onOpenChat && (
+            <button
+              onClick={onOpenChat}
+              className="px-2.5 py-1.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-purple-200 border border-purple-500/40 text-xs font-medium transition-all flex items-center gap-1 cursor-pointer"
+              title="Open EcoScan AI Recycling Assistant"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+              <span className="font-semibold hidden sm:inline">AI Chat</span>
+            </button>
+          )}
 
           {/* Torch / Flash Toggle */}
           <button
