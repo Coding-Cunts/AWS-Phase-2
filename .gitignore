@@ -1,9 +1,119 @@
-node_modules/
-.next/
-dist/
-_staging_*/
-*.log
-.env
-.env.local
-.DS_Store
+# ==============================================================================
+# TERRA — Unified Repository Git Ignore Rules
+# ==============================================================================
 
+# ------------------------------------------------------------------------------
+# Dependencies
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# ------------------------------------------------------------------------------
+# Environment Variables & Secrets (CRITICAL: Never commit secrets)
+# ------------------------------------------------------------------------------
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+**/.env
+**/.env.*
+**/.env.local
+
+# Allow all documented example templates
+!.env.example
+!**/.env.example
+
+# ------------------------------------------------------------------------------
+# Runtime Data & API Key Stores
+# ------------------------------------------------------------------------------
+data/api_keys.json
+data/api_keys.json.*
+backend/data/api_keys.json
+backend/data/api_keys.json.*
+**/data/*.json
+!**/data/*.example.json
+!**/data/.gitkeep
+
+# ------------------------------------------------------------------------------
+# Build & Distribution Artifacts
+# ------------------------------------------------------------------------------
+.next/
+**/.next/
+out/
+**/out/
+build/
+**/build/
+dist/
+**/dist/
+dist-ssr/
+**/dist-ssr/
+.turbo/
+**/tsconfig.tsbuildinfo
+*.tsbuildinfo
+next-env.d.ts
+**/.eslintcache
+
+# ------------------------------------------------------------------------------
+# Python & AWS Serverless
+# ------------------------------------------------------------------------------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+**/venv/
+**/env/
+.aws-build/
+.serverless/
+
+# ------------------------------------------------------------------------------
+# Logs & Process Dumps
+# ------------------------------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------------------------------------------------------
+# Staging, Temporary & Archive Files
+# ------------------------------------------------------------------------------
+_staging_*/
+_staging_*
+scratch-*.mjs
+*.tmp
+*.temp
+
+# ------------------------------------------------------------------------------
+# OS & Editor Artifacts
+# ------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+*.pem
+
+# VS Code & JetBrains
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
