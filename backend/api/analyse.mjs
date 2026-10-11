@@ -195,7 +195,7 @@ export default async function analyse(req, res) {
 
   activeRequests += 1;
   const started = performance.now();
-  const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+  const primaryModel = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
 
   try {
     const abortSignal = AbortSignal.timeout(45000);
@@ -214,7 +214,7 @@ export default async function analyse(req, res) {
       ] }],
     }), modelToUse);
 
-    const fallbackModels = (process.env.GEMINI_FALLBACK_MODELS || 'gemini-3.6-flash,gemini-3.5-flash')
+    const fallbackModels = (process.env.GEMINI_FALLBACK_MODELS || 'gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.8-flash,gemini-3.6-flash')
       .split(',').map(m => m.trim()).filter(Boolean);
     const chain = [...new Set([primaryModel, ...fallbackModels])];
     let usedModel = primaryModel;

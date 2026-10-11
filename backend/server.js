@@ -13,15 +13,13 @@ import { classifyImage } from './backend/external-classifier.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Automatically load .env from backend/ or workspace root if not already loaded
-if (!process.env.GEMINI_API_KEY) {
-  const localEnv = path.resolve(__dirname, '.env');
-  const rootEnv = path.resolve(__dirname, '../.env');
-  if (existsSync(localEnv)) {
-    try { process.loadEnvFile(localEnv); } catch {}
-  } else if (existsSync(rootEnv)) {
-    try { process.loadEnvFile(rootEnv); } catch {}
-  }
+// Always load .env from backend/ or workspace root
+const localEnv = path.resolve(__dirname, '.env');
+const rootEnv = path.resolve(__dirname, '../.env');
+if (existsSync(localEnv)) {
+  try { process.loadEnvFile(localEnv); } catch {}
+} else if (existsSync(rootEnv)) {
+  try { process.loadEnvFile(rootEnv); } catch {}
 }
 
 const app = express();
@@ -183,7 +181,7 @@ app.post('/api/analyze-waste', async (req, res) => {
         activeKeyIndex: 1,
         totalKeysInPool: keys.length || 1,
         failoverCount: 0,
-        modelUsed: process.env.GEMINI_MODEL || 'gemini-3.7-flash',
+        modelUsed: process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
       },
     });
   } catch (err) {
@@ -283,7 +281,7 @@ app.post('/api/classify', async (req, res) => {
     usedKeyIndex = activeKeyIndex;
 
     try {
-      const modelId = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+      const modelId = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${currentKey}`;
 
       const response = await fetch(endpoint, {
@@ -339,7 +337,7 @@ app.post('/api/classify', async (req, res) => {
       return res.json({
         success: true,
         source: 'gemini_vision_ai',
-        model: 'gemini-3.7-flash',
+        model: process.env.GEMINI_MODEL || 'gemini-flash-lite-latest',
         activeKeyIndex: (usedKeyIndex % keys.length) + 1,
         totalKeys: keys.length,
         inference_latency_ms: totalMs,
@@ -404,7 +402,7 @@ ${sceneContext}`;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const currentKey = getActiveKey();
         try {
-          const modelId = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+          const modelId = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
           const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${currentKey}`;
           const contents = [
             {

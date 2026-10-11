@@ -77,9 +77,9 @@ export function parseWasteResponse(text) {
 }
 
 /**
- * Per-quadrant system prompt — explicitly uncapped detection.
+ * Per-quadrant system prompt — strictly requesting schema-compliant JSON.
  */
-const QUADRANT_SYSTEM = 'Detect all visible waste items in this quadrant. Format as ### BACKEND_DATA\\nitem_name|category|ymin|xmin|ymax|xmax\\n### FRONTEND_REPORT\\noperational summary. Categories: Recyclable, Organic, Hazardous, Non-Recyclable. Bounding boxes [ymin, xmin, ymax, xmax] normalized 0-1000. Return JSON with items: [{label: string, category: "Recyclable"|"Organic"|"Hazardous"|"Non-Recyclable", box_2d: [ymin, xmin, ymax, xmax] normalized 0-1000}]. If none, return empty items array.';
+const QUADRANT_SYSTEM = 'Detect all visible waste items in this quadrant. Categories: Recyclable, Organic, Hazardous, Non-Recyclable. Bounding boxes [ymin, xmin, ymax, xmax] normalized 0-1000. Return JSON with items: [{label: string, category: "Recyclable"|"Organic"|"Hazardous"|"Non-Recyclable", box_2d: [ymin, xmin, ymax, xmax]}]. If formatted as text, format as ### BACKEND_DATA\\nitem_name|category|ymin|xmin|ymax|xmax\\n### FRONTEND_REPORT\\nsummary. If no items, return empty items array.';
 
 /**
  * Strict JSON schema enforced by Gemini's responseSchema — guarantees parseable
@@ -173,18 +173,58 @@ async function sliceIntoQuadrants(imageBuffer) {
 function extractJsonFromModelText(text) {
   if (!text || typeof text !== 'string') return null;
   let clean = text.trim();
-  clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  // Strip markdown code fences if present anywhere
+  clean = clean.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+
+  // 1. Direct JSON parse
   try {
-    return JSON.parse(clean);
-  } catch {
-    const start = clean.indexOf('{');
-    const end = clean.lastIndexOf('}');
-    if (start !== -1 && end > start) {
-      try {
-        return JSON.parse(clean.slice(start, end + 1));
-      } catch {}
+    const direct = JSON.parse(clean);
+    if (Array.isArray(direct)) return { items: direct };
+    if (direct && typeof direct === 'object') {
+      if (Array.isArray(direct.items)) return direct;
+      if (Array.isArray(direct.detectedItems)) return { items: direct.detectedItems };
     }
+  } catch {}
+
+  // 2. Extract outermost object {...}
+  const objStart = clean.indexOf('{');
+  const objEnd = clean.lastIndexOf('}');
+  if (objStart !== -1 && objEnd > objStart) {
+    try {
+      const parsedObj = JSON.parse(clean.slice(objStart, objEnd + 1));
+      if (parsedObj && typeof parsedObj === 'object') {
+        if (Array.isArray(parsedObj.items)) return parsedObj;
+        if (Array.isArray(parsedObj.detectedItems)) return { items: parsedObj.detectedItems };
+      }
+    } catch {}
   }
+
+  // 3. Extract outermost array [...]
+  const arrStart = clean.indexOf('[');
+  const arrEnd = clean.lastIndexOf(']');
+  if (arrStart !== -1 && arrEnd > arrStart) {
+    try {
+      const parsedArr = JSON.parse(clean.slice(arrStart, arrEnd + 1));
+      if (Array.isArray(parsedArr)) return { items: parsedArr };
+    } catch {}
+  }
+
+  // 4. Pipe-delimited legacy format fallback
+  if (clean.includes('### BACKEND_DATA') || clean.includes('|')) {
+    try {
+      const parsedData = parseWasteResponse(text);
+      if (parsedData?.detectedItems) {
+        return {
+          items: parsedData.detectedItems.map(d => ({
+            label: d.item_name,
+            category: d.category,
+            box_2d: [d.bbox.ymin, d.bbox.xmin, d.bbox.ymax, d.bbox.xmax],
+          })),
+        };
+      }
+    } catch {}
+  }
+
   return null;
 }
 
@@ -198,7 +238,7 @@ function extractJsonFromModelText(text) {
  * @returns {Promise<Array>}       Raw items array from the model
  */
 async function callGeminiQuadrant(quadrantBuffer, apiKey, overrideModel = null) {
-  const modelId = overrideModel || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+  const modelId = overrideModel || process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
 
   const payload = {
@@ -241,7 +281,8 @@ async function callGeminiQuadrant(quadrantBuffer, apiKey, overrideModel = null) 
   const textPart = allParts.find(p => p.text && !p.thought) || allParts[0];
   const text = textPart?.text;
   if (typeof text !== 'string' || !text.trim()) {
-    throw new Error('Gemini returned empty structured output for a quadrant.');
+    // If model returned empty text part, treat as empty detection
+    return [];
   }
 
   if (text.includes('### BACKEND_DATA')) {
@@ -256,11 +297,13 @@ async function callGeminiQuadrant(quadrantBuffer, apiKey, overrideModel = null) 
   const parsed = extractJsonFromModelText(text);
   if (!parsed) {
     console.error('[callGeminiQuadrant unparseable text]:', text);
-    throw new Error('Gemini structured output was not valid JSON.');
+    // If output is not parseable as JSON, return empty array rather than failing the entire scan
+    return [];
   }
 
-  if (!Array.isArray(parsed?.items)) throw new Error('Gemini structured output missing "items" array.');
-  return parsed.items;
+  if (Array.isArray(parsed)) return parsed;
+  if (Array.isArray(parsed?.items)) return parsed.items;
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -329,9 +372,9 @@ export async function classifyImage(image) {
   // 2 — Parallel Gemini calls
   const quadrantResults = await Promise.all(
     quadrants.map(async ({ buffer, row, col }) => {
-      const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+      const primaryModel = process.env.GEMINI_MODEL || 'gemini-flash-lite-latest';
       try {
-        const items = await withGeminiKey(apiKey => callGeminiQuadrant(buffer, apiKey, primaryModel));
+        const items = await withGeminiKey(apiKey => callGeminiQuadrant(buffer, apiKey, primaryModel), primaryModel);
         return { items, row, col };
       } catch (firstError) {
         console.error('[external-classifier quadrant error]:', firstError?.message || firstError);
@@ -339,7 +382,13 @@ export async function classifyImage(image) {
         const is503 = apiError?.statusCode === 503 || firstError?.statusCode === 503;
         const isQuota = apiError?.statusCode === 429 || firstError?.statusCode === 429 || /quota/i.test(firstError?.message || '');
         if (is503 || isQuota) {
-          const fallbackCandidates = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'].filter(m => m !== primaryModel);
+          const fallbackCandidates = [
+            'gemini-flash-lite-latest',
+            'gemini-3.5-flash-lite',
+            'gemini-3.1-flash-lite',
+            'gemini-3.8-flash',
+            'gemini-3.6-flash',
+          ].filter(m => m !== primaryModel);
           for (const fallbackModel of fallbackCandidates) {
             console.warn(`[external-classifier] ${primaryModel} unavailable or quota reached. Trying ${fallbackModel}...`);
             try {
