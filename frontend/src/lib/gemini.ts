@@ -42,6 +42,13 @@ export function getGeminiApiKeys(): string[] {
     }
   }
 
+  if (process.env.GEMINI_API_KEY_BACKUP) {
+    const backup = process.env.GEMINI_API_KEY_BACKUP.trim();
+    if (backup && !keys.includes(backup)) {
+      keys.push(backup);
+    }
+  }
+
   for (let i = 1; i <= 20; i++) {
     const envVal = process.env[`GEMINI_API_KEY_${i}`]?.trim();
     if (envVal && !keys.includes(envVal)) {
