@@ -343,7 +343,7 @@ export async function classifyImage(image) {
           for (const fallbackModel of fallbackCandidates) {
             console.warn(`[external-classifier] ${primaryModel} unavailable or quota reached. Trying ${fallbackModel}...`);
             try {
-              const items = await withGeminiKey(apiKey => callGeminiQuadrant(buffer, apiKey, fallbackModel));
+              const items = await withGeminiKey(apiKey => callGeminiQuadrant(buffer, apiKey, fallbackModel), fallbackModel);
               return { items, row, col };
             } catch (fallbackError) {
               firstError = fallbackError;
