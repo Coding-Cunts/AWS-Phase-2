@@ -4,17 +4,21 @@
   "private": true,
   "description": "TERRA Unified Application — Autonomous Waste Intelligence & High-Density Material Characterization",
   "type": "module",
+  "workspaces": [
+    "frontend"
+  ],
   "scripts": {
+    "postinstall": "npm install --prefix frontend",
     "dev": "node scripts/dev.mjs",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run start --prefix backend",
-    "build": "npm run build --prefix frontend",
+    "build": "npm run build --prefix frontend && node scripts/prepare-amplify-artifacts.mjs",
     "test": "npm run test:backend && npm run test:frontend",
     "test:backend": "npm run test --prefix backend && python -m unittest discover -s backend",
     "test:frontend": "npm run typecheck --prefix frontend"
   },
   "engines": {
-    "node": ">=22",
-    "npm": ">=10"
+    "node": ">=20",
+    "npm": ">=9"
   }
 }
