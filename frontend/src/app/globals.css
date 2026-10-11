@@ -1,0 +1,187 @@
+@import url('https://fonts.googleapis.com/css2?family=Satisfy&family=Allura&family=Italianno&family=Instrument+Serif:ital@0;1&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+@import "tailwindcss";
+
+/* Genuine Contemporary Calligraphic Script Fonts — Loaded Locally & via Google Fonts */
+@font-face {
+  font-family: 'Satisfy';
+  src: url('/fonts/Satisfy-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Allura';
+  src: url('/fonts/Allura-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Italianno';
+  src: url('/fonts/Italianno-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Surface Tokens - Deep Obsidian & Graphite Palette */
+  --bg-void: #030508;
+  --bg-deep: #06090e;
+  --bg-surface: #0a0e14;
+  --bg-surface-elevated: #0f141d;
+  --bg-card: rgba(10, 14, 20, 0.7);
+  --bg-card-hover: rgba(16, 23, 33, 0.85);
+
+  /* Precise Hairline Separators */
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.12);
+  --border-active: rgba(212, 175, 55, 0.35);
+
+  /* Curated Muted Gold - Reserved for Rare Focal Highlights */
+  --gold-primary: #d4af37;
+  --gold-light: #f5eedb;
+  --gold-muted: #bfa14c;
+  --gold-glow: rgba(212, 175, 55, 0.14);
+
+  /* Semantic Scientific State Tokens */
+  --color-emerald: #10b981;
+  --color-pet: #38bdf8;
+  --color-occ: #fbbf24;
+  --color-hdpe: #34d399;
+  --color-metal: #e2e8f0;
+  --color-glass: #c084fc;
+  --color-hazard: #f43f5e;
+
+  /* Typography System */
+  --font-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Consolas, monospace;
+  --font-script: 'Satisfy', 'Allura', cursive, serif;
+}
+
+html {
+  background-color: var(--bg-void);
+  color: #f7f9fc;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+  overflow-x: clip;
+}
+
+body {
+  background-color: var(--bg-void);
+  color: #f7f9fc;
+  font-family: var(--font-sans);
+  overflow-x: clip;
+  min-height: 100vh;
+  text-rendering: optimizeLegibility;
+}
+
+/* Font Utility Classes */
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.font-script {
+  font-family: var(--font-script);
+  font-style: normal;
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Minimal Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-void);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-primary);
+}
+
+::selection {
+  background: rgba(212, 175, 55, 0.3);
+  color: #ffffff;
+}
+
+/* Subtle Editorial Typography Classes */
+.headline-editorial {
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.text-gold-gradient {
+  background: linear-gradient(135deg, #ffffff 40%, #e2c97c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+.text-gold-accent {
+  color: #dfc37a;
+}
+
+/* Clean Hairline Grid & Rule */
+.hairline-b {
+  border-bottom: 1px solid var(--border-hairline);
+}
+.hairline-t {
+  border-top: 1px solid var(--border-hairline);
+}
+.hairline-r {
+  border-right: 1px solid var(--border-hairline);
+}
+.hairline-l {
+  border-left: 1px solid var(--border-hairline);
+}
+.hairline-all {
+  border: 1px solid var(--border-hairline);
+}
+
+/* Monospace Tabular Figures */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Reduced Motion Overrides */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  nav, aside, footer, #hero, #audit-workspace, #contamination-qa, #multi-site, #robot-api, #enterprise-tiers {
+    display: none !important;
+  }
+}

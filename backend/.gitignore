@@ -1,0 +1,17 @@
+node_modules
+data/api_keys.json
+data/api_keys.json.*.tmp
+.DS_Store
+dist
+dist-ssr
+.aws-build/
+__pycache__/
+*.local
+*.log
+
+# Environment variables & secrets (CRITICAL: Never commit to public GitHub)
+.env
+.env.*
+!.env.example
+vite.config.ts.timestamp-*
+
