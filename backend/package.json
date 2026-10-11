@@ -11,7 +11,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "node --test gemini.test.mjs developer-api.test.mjs gemini-failover.test.mjs",
-    "start": "node --env-file-if-exists=.env server.js"
+    "start": "node --watch --env-file-if-exists=.env server.js"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.93",
