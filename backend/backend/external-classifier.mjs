@@ -170,6 +170,24 @@ async function sliceIntoQuadrants(imageBuffer) {
 // Step 2 — Gemini call for one quadrant (native Structured Outputs)
 // ---------------------------------------------------------------------------
 
+function extractJsonFromModelText(text) {
+  if (!text || typeof text !== 'string') return null;
+  let clean = text.trim();
+  clean = clean.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try {
+    return JSON.parse(clean);
+  } catch {
+    const start = clean.indexOf('{');
+    const end = clean.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(clean.slice(start, end + 1));
+      } catch {}
+    }
+  }
+  return null;
+}
+
 /**
  * Sends a single quadrant JPEG buffer to the Gemini REST API using
  * `responseMimeType: 'application/json'` + `responseSchema` for zero-parse-error
@@ -180,7 +198,7 @@ async function sliceIntoQuadrants(imageBuffer) {
  * @returns {Promise<Array>}       Raw items array from the model
  */
 async function callGeminiQuadrant(quadrantBuffer, apiKey, overrideModel = null) {
-  const modelId = overrideModel || process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+  const modelId = overrideModel || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
 
   const payload = {
@@ -192,7 +210,7 @@ async function callGeminiQuadrant(quadrantBuffer, apiKey, overrideModel = null) 
     }],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 4096,
       responseMimeType: 'application/json',
       responseSchema: RESPONSE_SCHEMA,
     },
@@ -219,7 +237,9 @@ async function callGeminiQuadrant(quadrantBuffer, apiKey, overrideModel = null) 
   }
 
   const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const allParts = data?.candidates?.[0]?.content?.parts || [];
+  const textPart = allParts.find(p => p.text && !p.thought) || allParts[0];
+  const text = textPart?.text;
   if (typeof text !== 'string' || !text.trim()) {
     throw new Error('Gemini returned empty structured output for a quadrant.');
   }
@@ -233,9 +253,11 @@ async function callGeminiQuadrant(quadrantBuffer, apiKey, overrideModel = null) 
     }));
   }
 
-  let parsed;
-  try { parsed = JSON.parse(text); }
-  catch { throw new Error('Gemini structured output was not valid JSON.'); }
+  const parsed = extractJsonFromModelText(text);
+  if (!parsed) {
+    console.error('[callGeminiQuadrant unparseable text]:', text);
+    throw new Error('Gemini structured output was not valid JSON.');
+  }
 
   if (!Array.isArray(parsed?.items)) throw new Error('Gemini structured output missing "items" array.');
   return parsed.items;
@@ -307,7 +329,7 @@ export async function classifyImage(image) {
   // 2 — Parallel Gemini calls
   const quadrantResults = await Promise.all(
     quadrants.map(async ({ buffer, row, col }) => {
-      const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+      const primaryModel = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
       try {
         const items = await withGeminiKey(apiKey => callGeminiQuadrant(buffer, apiKey, primaryModel));
         return { items, row, col };
@@ -315,13 +337,17 @@ export async function classifyImage(image) {
         console.error('[external-classifier quadrant error]:', firstError?.message || firstError);
         const apiError = getApiCallError(firstError);
         const is503 = apiError?.statusCode === 503 || firstError?.statusCode === 503;
-        if (is503 && primaryModel !== 'gemini-3.6-flash') {
-          console.warn(`[external-classifier] ${primaryModel} returned 503. Trying gemini-3.6-flash...`);
-          try {
-            const items = await withGeminiKey(apiKey => callGeminiQuadrant(buffer, apiKey, 'gemini-3.6-flash'));
-            return { items, row, col };
-          } catch (fallbackError) {
-            firstError = fallbackError;
+        const isQuota = apiError?.statusCode === 429 || firstError?.statusCode === 429 || /quota/i.test(firstError?.message || '');
+        if (is503 || isQuota) {
+          const fallbackCandidates = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'].filter(m => m !== primaryModel);
+          for (const fallbackModel of fallbackCandidates) {
+            console.warn(`[external-classifier] ${primaryModel} unavailable or quota reached. Trying ${fallbackModel}...`);
+            try {
+              const items = await withGeminiKey(apiKey => callGeminiQuadrant(buffer, apiKey, fallbackModel));
+              return { items, row, col };
+            } catch (fallbackError) {
+              firstError = fallbackError;
+            }
           }
         }
         if (firstError instanceof ApiError) throw firstError;
