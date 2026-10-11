@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { existsSync, copyFileSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,6 +10,53 @@ const rootDir = path.resolve(__dirname, '..');
 
 const isWindows = process.platform === 'win32';
 const npmCmd = isWindows ? 'npm.cmd' : 'npm';
+
+// Synchronize and load root .env
+const rootEnv = path.join(rootDir, '.env');
+const backendEnv = path.join(rootDir, 'backend', '.env');
+if (existsSync(rootEnv)) {
+  try {
+    process.loadEnvFile(rootEnv);
+  } catch (err) {
+    console.warn('Could not parse root .env:', err.message);
+  }
+  if (!existsSync(backendEnv)) {
+    try {
+      copyFileSync(rootEnv, backendEnv);
+    } catch {}
+  }
+}
+
+// Clean up any stale processes holding ports 3000 or 3001
+function killPort(port) {
+  try {
+    if (isWindows) {
+      const out = execSync(`netstat -ano | findstr :${port}`, {
+        encoding: 'utf8',
+        shell: 'cmd.exe',
+        stdio: ['pipe', 'pipe', 'ignore'],
+      });
+      for (const line of out.split('\n')) {
+        if (line.includes('LISTENING')) {
+          const parts = line.trim().split(/\s+/);
+          const pid = parts[parts.length - 1];
+          if (pid && pid !== '0' && Number(pid) !== process.pid) {
+            try {
+              execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
+            } catch {}
+          }
+        }
+      }
+    } else {
+      execSync(`lsof -ti:${port} | xargs kill -9 2>/dev/null || true`, { stdio: 'ignore' });
+    }
+  } catch {
+    // Port was already free
+  }
+}
+
+killPort(3000);
+killPort(3001);
 
 console.log('\x1b[36m%s\x1b[0m', '═══════════════════════════════════════════════════════════════════');
 console.log('\x1b[1m\x1b[32m%s\x1b[0m', '  TERRA — Unified Application Runner');
@@ -77,9 +125,9 @@ function cleanup() {
       backendProc.kill('SIGTERM');
       frontendProc.kill('SIGTERM');
     }
-  } catch {
-    // Ignore errors during termination
-  }
+  } catch {}
+  killPort(3000);
+  killPort(3001);
   process.exit(0);
 }
 

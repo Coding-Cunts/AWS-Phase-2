@@ -13,6 +13,17 @@ import { classifyImage } from './backend/external-classifier.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Automatically load .env from backend/ or workspace root if not already loaded
+if (!process.env.GEMINI_API_KEY) {
+  const localEnv = path.resolve(__dirname, '.env');
+  const rootEnv = path.resolve(__dirname, '../.env');
+  if (existsSync(localEnv)) {
+    try { process.loadEnvFile(localEnv); } catch {}
+  } else if (existsSync(rootEnv)) {
+    try { process.loadEnvFile(rootEnv); } catch {}
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
