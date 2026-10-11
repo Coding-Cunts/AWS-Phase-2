@@ -184,7 +184,6 @@ async function callGeminiQuadrant(quadrantBuffer, apiKey, overrideModel = null) 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
 
   const payload = {
-    system_instruction: { parts: [{ text: QUADRANT_SYSTEM }] },
     systemInstruction: { parts: [{ text: QUADRANT_SYSTEM }] },
     contents: [{
       parts: [
@@ -313,6 +312,7 @@ export async function classifyImage(image) {
         const items = await withGeminiKey(apiKey => callGeminiQuadrant(buffer, apiKey, primaryModel));
         return { items, row, col };
       } catch (firstError) {
+        console.error('[external-classifier quadrant error]:', firstError?.message || firstError);
         const apiError = getApiCallError(firstError);
         const is503 = apiError?.statusCode === 503 || firstError?.statusCode === 503;
         if (is503 && primaryModel !== 'gemini-3.6-flash') {
@@ -332,7 +332,8 @@ export async function classifyImage(image) {
         if (firstError.name === 'TimeoutError' || firstError.name === 'AbortError') {
           throw new ApiError(504, 'Vision request timed out. Please retry.');
         }
-        throw new ApiError(502, 'Vision provider is unavailable or rejected the request.');
+        const detail = firstError?.message ? `: ${firstError.message}` : '.';
+        throw new ApiError(502, `Vision provider is unavailable or rejected the request${detail}`);
       }
     })
   );

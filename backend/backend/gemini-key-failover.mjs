@@ -1,7 +1,13 @@
 import { APICallError } from 'ai';
 
+function isRealApiKey(k) {
+  if (!k || typeof k !== 'string') return false;
+  const t = k.trim().toLowerCase();
+  return !t.startsWith('your_') && !t.includes('_here');
+}
+
 export function configuredGeminiKeys() {
-  return [...new Set([process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_BACKUP].map(key => key?.trim()).filter(Boolean))];
+  return [...new Set([process.env.GEMINI_API_KEY, process.env.GEMINI_API_KEY_BACKUP].map(key => key?.trim()).filter(isRealApiKey))];
 }
 
 function cooldownDuration(error, now) {

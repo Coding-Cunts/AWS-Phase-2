@@ -491,7 +491,9 @@ export default function AuditWorkspace() {
       });
 
       if (!res.ok) {
-        throw new Error(`Analysis service error (${res.status})`);
+        const errorData = await res.json().catch(() => ({}));
+        const detail = errorData.error || errorData.message || `Analysis service error (${res.status})`;
+        throw new Error(detail);
       }
 
       const data = await res.json();
@@ -541,7 +543,7 @@ export default function AuditWorkspace() {
       }
     } catch (err: any) {
       console.error(err);
-      triggerToast('⚠️ Network connection issue. Offline fallback estimate displayed.');
+      triggerToast(err?.message ? `⚠️ ${err.message}` : '⚠️ Network connection issue. Offline fallback estimate displayed.');
       setAnalysis((prev) => ({
         ...prev,
         scanId: `WA-${Math.floor(1000 + Math.random() * 9000)}-OFFLINE`,

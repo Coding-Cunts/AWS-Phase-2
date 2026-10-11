@@ -27,6 +27,12 @@ if (!process.env.GEMINI_API_KEY) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+function isRealApiKey(k) {
+  if (!k || typeof k !== 'string') return false;
+  const t = k.trim().toLowerCase();
+  return !t.startsWith('your_') && !t.includes('_here');
+}
+
 // Multi-Key Configuration & Dynamic Swap Pool
 // Accepts GEMINI_API_KEYS (comma-separated: key1,key2,key3) or individual keys (GEMINI_API_KEY, GEMINI_API_KEY_1, GEMINI_API_KEY_2, GEMINI_API_KEY_3)
 function getApiKeys() {
@@ -37,14 +43,14 @@ function getApiKeys() {
   if (process.env.GEMINI_API_KEY) {
     keys.push(...process.env.GEMINI_API_KEY.split(',').map(k => k.trim()).filter(Boolean));
   }
-  ['GEMINI_API_KEY_1', 'GEMINI_API_KEY_2', 'GEMINI_API_KEY_3'].forEach(envName => {
+  ['GEMINI_API_KEY_1', 'GEMINI_API_KEY_2', 'GEMINI_API_KEY_3', 'GEMINI_API_KEY_BACKUP'].forEach(envName => {
     if (process.env[envName]) {
       keys.push(process.env[envName].trim());
     }
   });
 
-  // Deduplicate keys preserving order
-  return [...new Set(keys)];
+  // Deduplicate keys preserving order, excluding any placeholder strings
+  return [...new Set(keys.filter(isRealApiKey))];
 }
 
 let activeKeyIndex = 0;
@@ -80,8 +86,18 @@ app.post('/api/analyze-waste', async (req, res) => {
     if (!image) {
       return res.status(400).json({ error: 'No image data provided' });
     }
-    const clean = image.replace(/^data:image\/[a-z]+;base64,/, '').replace(/\s+/g, '');
-    const buffer = Buffer.from(clean, 'base64');
+    let buffer;
+    if (typeof image === 'string' && (image.startsWith('http://') || image.startsWith('https://'))) {
+      const imgRes = await fetch(image);
+      if (!imgRes.ok) throw new Error(`Failed to load image from URL (${imgRes.status})`);
+      buffer = Buffer.from(await imgRes.arrayBuffer());
+    } else {
+      const clean = image.replace(/^data:[^;]+;base64,/i, '').replace(/\s+/g, '');
+      buffer = Buffer.from(clean, 'base64');
+    }
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ error: 'Image buffer is empty or corrupted' });
+    }
     const result = await classifyImage({ data: buffer, mimeType: 'image/jpeg' });
 
     const categoryMap = {
@@ -239,7 +255,7 @@ app.post('/api/classify', async (req, res) => {
   };
 
   const payload = {
-    system_instruction: {
+    systemInstruction: {
       parts: [{ text: 'Detect all visible waste items. Categorize as Recyclable, Organic, Hazardous, Non-Recyclable. Bounding boxes [ymin, xmin, ymax, xmax] normalized 0-1000.' }]
     },
     contents: [
